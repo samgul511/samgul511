@@ -6,7 +6,24 @@ from typing import Any
 from urllib.parse import urlparse
 
 from playwright.async_api import BrowserContext, Page, async_playwright
-from playwright_stealth import stealth_async
+
+try:
+    # playwright-stealth (новые версии)
+    from playwright_stealth import stealth_async as apply_stealth
+except ImportError:
+    try:
+        # playwright-stealth (часть версий экспортирует stealth)
+        from playwright_stealth import stealth as _stealth_sync
+
+        async def apply_stealth(page: Page) -> None:
+            _stealth_sync(page)
+
+    except ImportError:
+        async def apply_stealth(page: Page) -> None:
+            """Fallback: если playwright_stealth недоступен, продолжаем без stealth."""
+            logger.warning(
+                "playwright_stealth не найден или несовместим. Работаем без stealth-режима."
+            )
 
 # ================== CONFIG ==================
 
@@ -126,7 +143,7 @@ async def parse_yandex_maps(query: str, limit: int = 10) -> list[dict[str, Any]]
         )
 
         page = await context.new_page()
-        await stealth_async(page)
+        await apply_stealth(page)
 
         url = f"https://yandex.ru/maps/213/moscow/search/{query}/"
         logger.info("🚀 Запрос: %s", query)
